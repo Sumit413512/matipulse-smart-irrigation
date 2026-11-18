@@ -1,0 +1,15 @@
+{
+  "dataset": "synthetic random scenarios (generated, not measured)",
+  "n_samples": 2400,
+  "training_samples": 1800,
+  "holdout_samples": 600,
+  "split": "random 75/25 independent synthetic examples, seed 2026",
+  "model": "RandomForestRegressor",
+  "horizon": "illustrative next-hour wetness index",
+  "model_mae": 1.627,
+  "model_rmse": 2.026,
+  "baseline_mae": 3.495,
+  "validated_on_real_soil": false,
+  "allow_motor_control": false,
+  "warning": "Not a measured field result; do not claim water savings or predictive accuracy on real farms."
+}

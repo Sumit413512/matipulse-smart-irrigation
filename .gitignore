@@ -1,0 +1,26 @@
+# Secrets and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*credentials*.json
+
+# Python outputs
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+*.sqlite
+*.sqlite3
+*.db
+
+# Node/local tooling
+node_modules/
+.DS_Store
+*.log
+
+# Editor files
+.vscode/
+.idea/
