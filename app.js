@@ -62,6 +62,24 @@ function inputPayload(){return {
  sensor_valid:$('sensorValid').checked,tank_has_water:$('tankHasWater').checked,weather_fresh:$('weatherFresh').checked
 }}
 function putSettings(s){settings=s;const fields={criticalThreshold:'critical_threshold',dryThreshold:'dry_threshold',wetThreshold:'wet_threshold',rainThreshold:'rain_advisory_threshold',pulseSeconds:'pulse_seconds',pumpFlow:'simulated_pump_flow_ml_min'};Object.entries(fields).forEach(([el,key])=>$(el).value=s[key]);}
+function displaySoil(soil,settingsValue){
+ if(!soil)return;
+ const p=soil.active||{};
+ $('soilType').value=soil.active_id;
+ const meta=soil.types?.find(t=>t.id===soil.active_id);
+ $('soilDescription').textContent=meta?.description||'Soil properties require local measurement.';
+ $('settingsSoilName').textContent=p.name||soil.active_id;
+ $('soilThresholdSummary').textContent=`Critical <${settingsValue.critical_threshold} · Water <${settingsValue.dry_threshold} · Wet ≥${settingsValue.wet_threshold} (0–100 relative index)`;
+ const cal=p.calibration;
+ $('soilDryADC').value=cal?.dry_adc??'';
+ $('soilWetADC').value=cal?.wet_adc??'';
+ $('soilCalibrationOrigin').value=cal?.origin||'illustrative';
+ $('soilCalibrationStatus').textContent=cal?'USER-ENTERED':'NOT SET';
+ $('soilCalibrationStatus').classList.toggle('configured',!!cal);
+ $('soilCalibrationMessage').textContent=cal
+  ?`Calibration references saved: dry ${cal.dry_adc}, wet ${cal.wet_adc}. ${cal.origin==='user_measurement'?'Self-reported measured':'Illustrative / test'} values; no live sensor connected.`
+  :'No reference readings saved for this soil. Use the wetness slider to simulate irrigation decisions.';
+}
 function displayStatus(data,updateControls=true){
  state=data;const {reading:r,decision:d}=data;
  if(updateControls)updateInputs(r);
@@ -80,6 +98,7 @@ function displayStatus(data,updateControls=true){
  $('inputMode').textContent=data.operating_mode==='SIMULATION'?'MOCK INPUTS':'HARDWARE';
  $('lastUpdated').textContent='Updated '+new Date().toLocaleTimeString();
  if(data.settings && !settings)putSettings(data.settings);
+ if(data.soil)displaySoil(data.soil,data.settings);
  if(data.weather)renderWeatherConsensus(data.weather);
 }
 function renderWeatherConsensus(weather){
@@ -109,7 +128,7 @@ async function refreshWeatherHistory(){
  if(!data.hours.length)placeholder.textContent='No completed forecast hours yet';
 }
 function chartDraw(events){
- const recorded=events.filter(e=>e.moisture!=null&&['decision','pulse','hardware_reading','weather_update'].includes(e.kind)).slice(0,30).reverse();
+ const recorded=events.filter(e=>e.moisture!=null&&['decision','pulse','manual_adc','hardware_reading','weather_update'].includes(e.kind)).slice(0,30).reverse();
  const svg=$('wetnessChart');if(recorded.length<2){svg.innerHTML='<text x="315" y="87" text-anchor="middle" fill="#84978e" font-size="13">Record two scenarios to display the graph</text>';return;}
  const points=recorded.map((e,i)=>[28+(i*574/(recorded.length-1)),158-(e.moisture*1.36)]);
  const line=points.map(p=>p.join(',')).join(' '),area=`${points[0][0]},158 ${line} ${points[points.length-1][0]},158`;
@@ -134,6 +153,23 @@ function useScene(name){const p=scenarioMap[name];if(!p)return;updateInputs(p);e
 function hooks(){
  ['moisture','rain','temp','humidity'].forEach(id=>$(id).addEventListener('input',updateSliderNumbers));
  $('evaluateBtn').addEventListener('click',evaluateInputs);
+ $('soilType').addEventListener('change',async()=>{
+   const selected=$('soilType').value;
+   const result=await act(()=>request('/soil-profile','POST',{id:selected}),`Now using ${$('soilType').selectedOptions[0].textContent} settings. No automatic soil detection.`);
+   if(result?.settings)putSettings(result.settings);
+   else if(state?.soil)$('soilType').value=state.soil.active_id;
+ });
+ $('saveSoilCalibration').addEventListener('click',()=>{
+   const a=$('soilDryADC').value.trim(),b=$('soilWetADC').value.trim();
+   if(!a||!b){toast('Enter both dry and wet ADC references.',true);return;}
+   act(()=>request('/soil-calibration','PUT',{dry_adc:Number(a),wet_adc:Number(b),origin:$('soilCalibrationOrigin').value}),
+    'Sensor reference values saved for this soil only. Not hardware-verified.');
+ });
+ $('applySoilADC').addEventListener('click',()=>{
+   const raw=$('soilManualADC').value.trim();
+   if(!raw){toast('Enter a raw ADC reading to convert.',true);return;}
+   act(()=>request('/soil-manual-adc','POST',{adc:Number(raw)}),'Manual ADC input converted and evaluated; not read from hardware.');
+ });
  document.querySelectorAll('[data-scenario]').forEach(btn=>btn.addEventListener('click',()=>useScene(btn.dataset.scenario)));
  $('heroDry').addEventListener('click',()=>{useScene('dry');$('lab').scrollIntoView({behavior:'smooth',block:'start'})});
  $('pulseBtn').addEventListener('click',async()=>{
@@ -145,7 +181,7 @@ function hooks(){
  $('language').addEventListener('change',()=>{if(state)displayStatus(state,false)});
  $('saveSettings').addEventListener('click',()=>{
   const payload={critical_threshold:Number($('criticalThreshold').value),dry_threshold:Number($('dryThreshold').value),wet_threshold:Number($('wetThreshold').value),rain_advisory_threshold:Number($('rainThreshold').value),pulse_seconds:Number($('pulseSeconds').value),simulated_pump_flow_ml_min:Number($('pumpFlow').value)};
-  act(()=>request('/settings','PUT',payload),'Thresholds saved. Recalibrate before using real hardware.').then(result=>{if(result?.settings)putSettings(result.settings)});
+  act(()=>request('/settings','PUT',payload),'Thresholds saved for the selected soil. Calibrate for crop and field before real use.').then(result=>{if(result?.settings)putSettings(result.settings)});
  });
  $('getWeather').addEventListener('click',async()=>{
   const lat=Number($('lat').value),lon=Number($('lon').value);

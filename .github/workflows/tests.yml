@@ -17,6 +17,7 @@ jobs:
         with:
           node-version: '22'
       - run: node test_weather.js
+      - run: node test_soil.js
 
   backend:
     runs-on: ubuntu-latest

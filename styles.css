@@ -33,3 +33,34 @@
 .rain-accuracy-fields input,.rain-accuracy-fields select{width:100%;border:1px solid #dae7dc;border-radius:8px;background:white;padding:9px;min-width:0;color:#26563c}
 .weather-accuracy-results{font-size:10px;line-height:1.65;color:#718c79;margin-top:10px}
 @media(max-width:630px){.weather-model-grid{grid-template-columns:1fr 1fr}.rain-accuracy-fields{grid-template-columns:1fr}}
+
+/* Soil profile design — foreground controls remain simulated and per-browser. */
+.soil-profile-panel{margin-bottom:19px;padding:23px 25px;border-color:#d9e8dc;box-shadow:0 14px 34px rgba(17,67,42,.045)}
+.soil-profile-panel .panel-header{margin-bottom:19px}
+.soil-profile-panel .panel-header h3{font-size:22px;letter-spacing:-.7px}
+.soil-layout{display:grid;grid-template-columns:minmax(0,.94fr) minmax(0,1.06fr);gap:19px}
+.soil-profile-choice{background:linear-gradient(140deg,#eff7f0 0%,#f8faf4 100%);border:1px solid #dcebdd;border-radius:12px;padding:19px}
+.soil-field-label{display:block;font-weight:800;color:#326346;font-size:11px;margin:0 0 9px}
+.soil-profile-panel select,.soil-profile-panel input{width:100%;color:#22533b;border-radius:8px;border:1px solid #cfe2d2;background:white;padding:10px 11px;outline:none;font-size:12px}
+.soil-profile-panel input:focus,.soil-profile-panel select:focus{border-color:#4ba878;box-shadow:0 0 0 3px rgba(80,181,122,.12)}
+.soil-profile-choice>select{font-weight:850;font-size:13px;padding:11px}
+.soil-description{font-size:11px;color:#618270;line-height:1.75;margin:13px 0 17px;min-height:54px}
+.soil-threshold-box{display:grid;gap:7px;background:#fff;border:1px solid #dcebdd;border-radius:9px;padding:13px 15px}
+.soil-threshold-box span{font-size:9px;font-weight:900;letter-spacing:1px;text-transform:uppercase;color:#6d9a7d}
+.soil-threshold-box strong{font-size:13px;color:#215338;line-height:1.6}
+.soil-threshold-box small{font-size:10px;line-height:1.55;color:#809888}
+.soil-caution{font-size:10px;line-height:1.7;color:#8b7957;margin:14px 0 0}
+.soil-calibration-card{border:1px solid #e2ece4;border-radius:12px;padding:18px 19px}
+.soil-card-heading{display:flex;align-items:start;justify-content:space-between;gap:9px;margin-bottom:17px}
+.soil-card-heading strong{display:block;font-size:15px;color:#234937}
+.soil-card-heading small{display:block;font-size:10px;line-height:1.6;margin-top:5px;color:#83968b}
+.soil-cal-status{background:#f8efe3;color:#987042;font-size:9px;font-weight:900;white-space:nowrap;padding:6px 7px;border-radius:6px}
+.soil-cal-status.configured{background:#e5f4e9;color:#367e4e}
+.soil-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+.soil-form-grid label,.soil-adc-try label{font-size:10px;font-weight:750;color:#617e6d;display:grid;gap:6px}
+.soil-action{margin-top:12px}
+.soil-adc-try{display:grid;grid-template-columns:1fr auto;align-items:end;gap:12px;margin-top:17px;padding-top:16px;border-top:1px solid #e6ece7}
+.soil-adc-try .btn{height:38px}
+.soil-result{background:#f5f9f5;border-left:3px solid #68b588;padding:10px 11px;border-radius:0 7px 7px 0;margin-top:15px;color:#688572;font-size:10px;line-height:1.65}
+@media(max-width:1100px){.soil-layout{grid-template-columns:1fr}}
+@media(max-width:630px){.soil-profile-panel{padding:16px}.soil-profile-panel .panel-header h3{font-size:18px}.soil-form-grid,.soil-adc-try{grid-template-columns:1fr}.soil-card-heading{flex-wrap:wrap}.soil-description{min-height:auto}}

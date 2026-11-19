@@ -7,10 +7,24 @@
  const STORE='matipulse-demo-2026-v3';
  const defaultSettings={dry_threshold:35,wet_threshold:55,critical_threshold:20,rain_advisory_threshold:70,pulse_seconds:4,simulated_pump_flow_ml_min:120};
  const defaultReading={moisture:42,temperature:29,humidity:63,rain_probability:72,sensor_valid:true,tank_has_water:true,weather_fresh:true,emergency_stop:false,source:'simulation',weather_source:'scenario'};
+ const Soil=window.MatiPulseSoil;
  let db;
  try {db=JSON.parse(localStorage.getItem(STORE)||'null')}catch{db=null}
  if(!db||typeof db!=='object') db={settings:{...defaultSettings},reading:{...defaultReading},stop_latched:false,weather:null,events:[]};
  db.settings={...defaultSettings,...(db.settings||{})}; db.reading={...defaultReading,...(db.reading||{})};
+ // Preserve existing browser settings: migrate them into the custom soil profile.
+ if(!db.soil_profiles){
+   db.soil_profiles=Soil.createProfiles(defaultSettings);
+   db.soil_profiles.custom.settings={...db.settings};
+   db.active_soil_id='custom';
+ }
+ db.active_soil_id=Soil.TYPES.some(t=>t.id===db.active_soil_id)?db.active_soil_id:'custom';
+ for(const t of Soil.TYPES){
+   const p=db.soil_profiles[t.id];
+   if(!p||typeof p!=='object')db.soil_profiles[t.id]=Soil.createProfiles(defaultSettings)[t.id];
+   else db.soil_profiles[t.id]={...p,id:t.id,name:t.name,settings:{...defaultSettings,...(p.settings||{})}};
+ }
+ db.settings={...db.soil_profiles[db.active_soil_id].settings};
  db.events=Array.isArray(db.events)?db.events.slice(0,500):[];
  db.weatherHistory=Array.isArray(db.weatherHistory)?db.weatherHistory.slice(-120):[];
  db.weatherObservations=Array.isArray(db.weatherObservations)?db.weatherObservations.slice(-200):[];
@@ -29,8 +43,10 @@
  }
  const decision=(code,pump_allowed,status,reason_en,category)=>({code,pump_allowed,status,reason_en,category});
  function effectiveReading(){const r={...db.reading,emergency_stop:!!db.stop_latched};if(r.weather_source==='MULTI_MODEL'){const age=Date.now()-Date.parse(db.weather?.updated_at||0);if(!(age>=0&&age<90*60*1000) || !db.weather?.safe_to_defer)r.weather_fresh=false;}return r;}
- const current=()=>({reading:effectiveReading(),decision:evaluate(effectiveReading(),db.settings),settings:{...db.settings},weather:db.weather,operating_mode:'SIMULATION',hardware_latest:null,physical_pump_connected:false,storage:'browser-local'});
- function record(kind,metadata={},estimated_ml=0){const s=current();db.events.unshift({created_utc:now(),kind,source:s.reading.source||'simulation',moisture:s.reading.moisture,temperature:s.reading.temperature,humidity:s.reading.humidity,rain_probability:s.reading.rain_probability,code:s.decision.code,reason:s.decision.reason_en,estimated_ml,data_json:JSON.stringify(metadata)});db.events=db.events.slice(0,500);persist()}
+ const current=()=>({reading:effectiveReading(),decision:evaluate(effectiveReading(),db.settings),settings:{...db.settings},
+  soil:{active_id:db.active_soil_id,active:structuredClone(db.soil_profiles[db.active_soil_id]),types:Soil.TYPES},
+  weather:db.weather,operating_mode:'SIMULATION',hardware_latest:null,physical_pump_connected:false,storage:'browser-local'});
+ function record(kind,metadata={},estimated_ml=0){const s=current();db.events.unshift({created_utc:now(),kind,soil_profile:db.active_soil_id,source:s.reading.source||'simulation',moisture:s.reading.moisture,temperature:s.reading.temperature,humidity:s.reading.humidity,rain_probability:s.reading.rain_probability,code:s.decision.code,reason:s.decision.reason_en,estimated_ml,data_json:JSON.stringify(metadata)});db.events=db.events.slice(0,500);persist()}
  function validInput(p){for(const [k,lo,hi] of [['moisture',0,100],['temperature',-20,70],['humidity',0,100],['rain_probability',0,100]]){if(!Number.isFinite(p[k])||p[k]<lo||p[k]>hi)throw error(422,`Invalid ${k}.`)} }
  function error(status,detail){const e=new Error(detail);e.status=status;return e}
  const sum=()=>({total_events:db.events.length,pulses:db.events.filter(e=>e.kind==='pulse').length,simulated_ml:Math.round(db.events.filter(e=>e.kind==='pulse').reduce((x,e)=>x+Number(e.estimated_ml||0),0)*10)/10,safety_events:db.events.filter(e=>e.code==='SENSOR_FAULT'||e.code==='EMPTY_TANK'||e.code==='EMERGENCY_STOP').length});
@@ -43,7 +59,29 @@
   if(pathname==='/api/settings'&&method==='PUT'){
     const s={...payload};if(!(s.critical_threshold>=0&&s.critical_threshold<s.dry_threshold&&s.dry_threshold<s.wet_threshold&&s.wet_threshold<=100))throw error(422,'Require 0 ≤ critical < dry < wet ≤ 100.');
     if(!(s.rain_advisory_threshold>=0&&s.rain_advisory_threshold<=100&&s.pulse_seconds>=1&&s.pulse_seconds<=10&&s.simulated_pump_flow_ml_min>=1&&s.simulated_pump_flow_ml_min<=2000))throw error(422,'Invalid rain, pulse, or flow settings.');
-    db.settings=s;persist();return current();
+    db.settings=s;db.soil_profiles[db.active_soil_id].settings={...s};record('soil_thresholds_saved',{soil_profile:db.active_soil_id});persist();return current();
+  }
+  if(pathname==='/api/soil-profile'&&method==='POST'){
+    try{Soil.assertSoilId(payload?.id)}catch(e){throw error(422,e.message)}
+    db.active_soil_id=payload.id;
+    db.settings={...db.soil_profiles[db.active_soil_id].settings};
+    record('soil_profile_selected',{soil_profile:db.active_soil_id});persist();return current();
+  }
+  if(pathname==='/api/soil-calibration'&&method==='PUT'){
+    const dry_adc=Number(payload?.dry_adc),wet_adc=Number(payload?.wet_adc);
+    try{Soil.checkCalibration(dry_adc,wet_adc)}catch(e){throw error(422,e.message)}
+    const origin=payload?.origin==='user_measurement'?'user_measurement':'illustrative';
+    db.soil_profiles[db.active_soil_id].calibration={dry_adc,wet_adc,origin,
+      recorded_at:now(),verification:'user-entered, not independently verified'};
+    record('soil_calibration_saved',{soil_profile:db.active_soil_id,origin});persist();return current();
+  }
+  if(pathname==='/api/soil-manual-adc'&&method==='POST'){
+    const adc=Number(payload?.adc);let wetness;
+    try{wetness=Soil.wetnessFromADC(adc,db.soil_profiles[db.active_soil_id].calibration)}
+    catch(e){throw error(422,e.message)}
+    db.reading.moisture=wetness;db.reading.source='manual_adc_simulation';db.reading.sensor_valid=true;
+    record('manual_adc',{soil_profile:db.active_soil_id,adc,wetness,provenance:'manually typed ADC input; not a live physical measurement'});
+    persist();return current();
   }
   if(pathname==='/api/simulate'&&method==='POST'){
     validInput(payload);db.reading={...defaultReading,...payload,emergency_stop:db.stop_latched,source:'simulation',weather_source:'scenario'};record('decision',{provenance:'user-controlled browser simulation'});return current();
@@ -106,7 +144,7 @@
  };
  function csvCell(v){const s=String(v??'');return '"'+s.replaceAll('"','""')+'"'}
  window.MatiPulseExportCSV=()=>{
-  const columns=['created_utc','kind','source','moisture','temperature','humidity','rain_probability','code','reason','estimated_ml','data_json'];
+  const columns=['created_utc','kind','soil_profile','source','moisture','temperature','humidity','rain_probability','code','reason','estimated_ml','data_json'];
   const csv=[columns.join(','),...db.events.slice().reverse().map(r=>columns.map(k=>csvCell(r[k])).join(','))].join('\r\n');
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download='matipulse_weather_decision_events.csv';a.click();setTimeout(()=>URL.revokeObjectURL(u),800);
  };

@@ -7,6 +7,7 @@
     <div class="side-label">WORKSPACE</div>
     <nav class="nav">
       <a href="#overview" class="active"><span>▦</span> Overview</a>
+      <a href="#soil"><span>♧</span> Soil profiles</a>
       <a href="#lab"><span>◫</span> Decision lab</a>
       <a href="#insights"><span>◷</span> Analytics & logs</a>
       <a href="#settings"><span>⚙</span> Configuration</a>
@@ -30,6 +31,30 @@
       <div class="stat-card"><div class="stat-top"><span>AMBIENT TEMPERATURE</span><div class="stat-icon amber">☀</div></div><div class="stat-value"><span id="tempCard">29</span><small>°C</small></div><div class="stat-meta"><span class="little-badge">SIMULATED</span><span>Current scenario</span></div></div>
       <div class="stat-card"><div class="stat-top"><span>RAIN PROBABILITY</span><div class="stat-icon blue">☂</div></div><div class="stat-value"><span id="rainCard">72</span><small>%</small></div><div class="stat-meta"><span class="little-badge" id="weatherBadge">SCENARIO</span><span>Peak in next 3h</span></div></div>
       <div class="stat-card"><div class="stat-top"><span>IRRIGATION STATUS</span><div class="stat-icon violet">◈</div></div><div class="stat-value decision-text" id="stateCard">WAIT</div><div class="stat-meta"><span class="status-chip" id="stateChip">NO WATER NEEDED</span><span>Safety-first engine</span></div></div>
+    </section>
+    <section class="panel soil-profile-panel" id="soil" aria-label="Soil type, calibration and thresholds">
+      <div class="panel-header compact"><div><div class="panel-overline">SOIL INTELLIGENCE / FIELD CONFIGURATION</div><h3>Set the right soil. Make a better decision.</h3><p>Each soil has its own saved irrigation thresholds and user-entered calibration references.</p></div><span class="tag">FIELD-AWARE SETUP</span></div>
+      <div class="soil-layout">
+        <div class="soil-profile-choice">
+          <label class="soil-field-label" for="soilType">Select soil type</label>
+          <select id="soilType"><option value="black">Black soil</option><option value="red">Red soil</option><option value="custom">Other / custom soil</option></select>
+          <div class="soil-description" id="soilDescription">Loading soil profile details…</div>
+          <div class="soil-threshold-box"><span>Active irrigation thresholds</span><strong id="soilThresholdSummary">Critical &lt;20 · Water &lt;35 · Wet ≥55</strong><small>These are configurable trial values, not crop- or soil-validated setpoints.</small></div>
+          <p class="soil-caution">⚠ Soil colour does not determine plant-available water. Set thresholds based on sensor calibration, crop, soil texture and local observation. Switching profiles does not identify soil automatically.</p>
+        </div>
+        <div class="soil-calibration-card">
+          <div class="soil-card-heading"><div><strong>Sensor calibration</strong><small>Optional manual ADC reference entry for the selected soil</small></div><span class="soil-cal-status" id="soilCalibrationStatus">NOT SET</span></div>
+          <div class="soil-form-grid">
+            <label for="soilDryADC">Dry soil reference (ADC)<input id="soilDryADC" type="number" min="0" max="4095" step="1" placeholder="e.g. 3100"></label>
+            <label for="soilWetADC">Wet soil reference (ADC)<input id="soilWetADC" type="number" min="0" max="4095" step="1" placeholder="e.g. 1300"></label>
+          </div>
+          <label class="soil-field-label" for="soilCalibrationOrigin">Reference values represent</label>
+          <select id="soilCalibrationOrigin"><option value="illustrative">Illustrative / test values</option><option value="user_measurement">My physical measurements (self-reported)</option></select>
+          <button type="button" class="small-btn soil-action" id="saveSoilCalibration">Save soil calibration references</button>
+          <div class="soil-adc-try"><label for="soilManualADC">Try a manually entered ADC reading<input id="soilManualADC" type="number" min="0" max="4095" step="1" placeholder="e.g. 2200"></label><button type="button" class="btn soft" id="applySoilADC">Convert &amp; evaluate</button></div>
+          <div class="soil-result" id="soilCalibrationMessage" role="status">Calibration not configured. The wetness slider remains simulated.</div>
+        </div>
+      </div>
     </section>
     <section class="columns" id="lab">
       <div class="panel scenario-panel"><div class="panel-header"><div><div class="panel-overline">01 / CONTROL ROOM</div><h3>Decision simulator</h3><p>Adjust environment inputs to test the irrigation policy.</p></div><span class="tag" id="inputMode">MOCK INPUTS</span></div>
@@ -55,7 +80,7 @@
       </div>
     </section>
     <section class="columns bottom-grid" id="settings">
-      <div class="panel settings-panel"><div class="panel-header compact"><div><div class="panel-overline">07 / ENGINE CONFIGURATION</div><h3>Irrigation thresholds</h3><p>Settings persist locally in this browser.</p></div></div><div class="setting-fields"><label>Critical dry index<input type="number" id="criticalThreshold" min="0" max="99"></label><label>Start watering below<input type="number" id="dryThreshold" min="1" max="99"></label><label>Upper wetness boundary<input type="number" id="wetThreshold" min="2" max="100"></label><label>Rain advisory threshold (%)<input type="number" id="rainThreshold" min="0" max="100"></label><label>Pulse duration (sec)<input type="number" id="pulseSeconds" min="1" max="10"></label><label>Illustrative flow (mL/min)<input type="number" id="pumpFlow" min="1" max="2000"></label></div><div class="settings-bottom"><button class="btn primary" id="saveSettings">Save decision thresholds</button><span>Require critical &lt; dry &lt; wet</span></div></div>
+      <div class="panel settings-panel"><div class="panel-header compact"><div><div class="panel-overline">07 / ENGINE CONFIGURATION</div><h3>Irrigation thresholds</h3><p>Editing soil profile: <strong id="settingsSoilName">Other / custom soil</strong>. Settings persist separately for each soil in this browser.</p></div></div><div class="setting-fields"><label>Critical dry index<input type="number" id="criticalThreshold" min="0" max="99"></label><label>Start watering below<input type="number" id="dryThreshold" min="1" max="99"></label><label>Upper wetness boundary<input type="number" id="wetThreshold" min="2" max="100"></label><label>Rain advisory threshold (%)<input type="number" id="rainThreshold" min="0" max="100"></label><label>Pulse duration (sec)<input type="number" id="pulseSeconds" min="1" max="10"></label><label>Illustrative flow (mL/min)<input type="number" id="pumpFlow" min="1" max="2000"></label></div><div class="settings-bottom"><button class="btn primary" id="saveSettings">Save decision thresholds</button><span>Require critical &lt; dry &lt; wet</span></div></div>
       <div class="panel weather-panel"><div class="panel-overline">08 / WEATHER AWARENESS</div><h3>Multi-model rainfall consensus</h3><p>Compare independent ECMWF, GFS and ICON weather models for the same three upcoming hours. Forecast agreement is not a guarantee of accuracy. Safety rules work without forecasts.</p><div class="weather-fields"><label>Latitude<input type="number" step="0.0001" id="lat" value="18.5204"></label><label>Longitude<input type="number" step="0.0001" id="lon" value="73.8567"></label></div><span class="sample-location">Example coordinates: Pune, India · editable</span><button class="btn soft wide" id="getWeather">☁ Compare three forecast models</button><div class="weather-result" id="weatherResult" role="status">No live forecast fetched. Weather slider values are simulations.</div>
         <div class="weather-ensemble-summary" id="weatherConsensusSummary">Three meteorological models will be compared. When they disagree, the uncertainty will be visible.</div>
         <div class="weather-model-grid" id="weatherModelGrid" aria-label="Weather model comparisons"></div>
@@ -68,5 +93,5 @@
   </main>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<script src="/weather-consensus.js" defer></script><script src="/shim.js" defer></script><script src="/app.js" defer></script><script src="/fault-lab.js" defer></script>
+<script src="/weather-consensus.js" defer></script><script src="/soil-profiles.js" defer></script><script src="/shim.js" defer></script><script src="/app.js" defer></script><script src="/fault-lab.js" defer></script>
 </body></html>
